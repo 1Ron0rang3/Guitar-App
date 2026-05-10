@@ -59,6 +59,16 @@ function App() {
   const [fretCount] = useState<number>(
     storedState.version !== defaultState.version ? defaultState.fretCount : storedState.fretCount,
   );
+
+  // Responsive fret count: reduce to 12 on narrow viewports so all frets stay
+  // readable without horizontal scrolling. Tracks both resize and rotation.
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const handler = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  const displayFretCount = viewportWidth < 768 ? 12 : fretCount;
   const [showLabels, setShowLabels] = useState<boolean>(storedState.showLabels);
   const [hideUnselected, setHideUnselected] = useState<boolean>(storedState.hideUnselected);
   const [accidentalPreference, setAccidentalPreference] = useState<AccidentalPreference>(storedState.accidentalPreference);
@@ -212,7 +222,7 @@ function App() {
         <div className="fretboard-wrap">
           <Fretboard
             tuning={tuning}
-            fretCount={fretCount}
+            fretCount={displayFretCount}
             selectedNotes={selectedNotes}
             rootNote={rootNote}
             showLabels={showLabels}

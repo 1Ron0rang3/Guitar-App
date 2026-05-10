@@ -262,6 +262,7 @@ select {
   font-weight: 700;
   color: rgba(26, 22, 20, 0.6);
   letter-spacing: 0.03em;
+  overflow: hidden;
 }
 
 .fret-header:not(.nut-cell),
@@ -317,6 +318,7 @@ select {
   font-weight: 700;
   border: 2px solid transparent;
   transition: background 130ms ease, transform 130ms ease, border-color 130ms ease, color 130ms ease, box-shadow 130ms ease;
+  overflow: hidden;
 }
 
 .note-marker.is-muted {
@@ -659,30 +661,24 @@ select {
 
 /* ── Responsive ── */
 
-@media (max-width: 1100px) {
-  .hero-stats {
-    flex-direction: column;
+/* ── 900px: 24 frets still shown, tighten markers slightly ── */
+@media (max-width: 900px) {
+  .note-marker {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.63rem;
   }
 
-  .stat-card {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .stat-card:last-child {
-    border-bottom: none;
+  .note-marker.is-open {
+    width: 1.85rem;
+    height: 1.85rem;
   }
 }
 
+/* ── 720px: switches to 12 frets — markers can be comfortable ── */
 @media (max-width: 720px) {
   .app-shell {
     padding: 1rem 1rem 3rem;
-  }
-
-  .app-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.15rem;
   }
 
   .panel,
@@ -690,9 +686,21 @@ select {
     border-radius: 10px;
   }
 
-  .tabs-row,
-  .note-grid,
-  .tuning-grid,
+  /* Tabs: 2×2 grid instead of 4 stacked rows */
+  .tabs-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Keep note and tuning grids at 2 columns — 1 column is too wide */
+  .note-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tuning-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Form controls stay full-width */
   .inline-fields,
   .button-row,
   .toggle-row {
@@ -703,15 +711,117 @@ select {
     border-radius: 6px;
   }
 
+  /* 12 frets: ~25px columns on 375px phone — keep markers readable */
+  .note-marker {
+    width: 1.65rem;
+    height: 1.65rem;
+    font-size: 0.62rem;
+  }
+
+  .note-marker.is-open {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
   .fret-cell,
   .fret-header {
     min-height: 3rem;
   }
 
+  .fret-header {
+    font-size: 0.58rem;
+    letter-spacing: 0;
+  }
+
+  .tab-panel {
+    min-height: 22rem;
+  }
+}
+
+/* ── Small phones (≤ 480px) ── */
+
+@media (max-width: 480px) {
+  .app-shell {
+    padding: 0.75rem 0.75rem max(2.5rem, env(safe-area-inset-bottom));
+  }
+
+  /* Hero stats: compact horizontal row instead of stacked blocks */
+  .hero-stats {
+    flex-direction: row;
+  }
+
+  .stat-card {
+    flex: 1;
+    padding: 0.6rem 0.65rem;
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+  }
+
+  .stat-card:last-child {
+    border-right: none;
+  }
+
+  .stat-card span {
+    font-size: 0.58rem;
+    letter-spacing: 0.06em;
+  }
+
+  .stat-card strong {
+    font-size: 0.82rem;
+  }
+
+  /* Tighter panels */
+  .panel,
+  .tabs-shell {
+    padding: 0.9rem;
+    border-radius: 9px;
+  }
+
+  .tab-panel {
+    min-height: 18rem;
+  }
+
+  .tab-button {
+    font-size: 0.76rem;
+    padding: 0.4rem 0.5rem;
+    min-height: 2.6rem;
+  }
+
+  /* 12 frets on small phones — slightly tighter rows, markers still legible */
   .note-marker {
-    width: 1.75rem;
-    height: 1.75rem;
-    font-size: 0.63rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.58rem;
+  }
+
+  .note-marker.is-open {
+    width: 1.6rem;
+    height: 1.6rem;
+  }
+
+  .fret-cell,
+  .fret-header {
+    min-height: 2.75rem;
+  }
+
+  .fret-header {
+    font-size: 0.52rem;
+  }
+
+  /* Scale / Chord inputs */
+  .scale-search-input,
+  .chord-input {
+    font-size: 0.875rem;
+  }
+
+  /* Voicing cards: smaller columns on tiny screens */
+  .chord-voicing-grid {
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  }
+
+  /* Preset shape cards: allow smaller */
+  .preset-shape-card {
+    width: 70px;
   }
 }
 
@@ -916,7 +1026,7 @@ select {
   transform: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 480px) {
   .scale-controls {
     grid-template-columns: 1fr;
   }
@@ -1401,15 +1511,17 @@ select {
 }
 
 @media (max-width: 720px) {
-  .chord-voicing-grid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  }
-
   .chord-info-notes {
     margin-left: 0;
   }
 
   .chord-filter-toggle {
     margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .chord-voicing-grid {
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
   }
 }

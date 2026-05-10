@@ -35,7 +35,7 @@ export function Fretboard({
       </div>
 
       <div className="fretboard-scroll">
-        <div className="fretboard" style={{ gridTemplateColumns: `repeat(${fretCount + 1}, minmax(3.15rem, 1fr))` }}>
+        <div className="fretboard" style={{ gridTemplateColumns: `repeat(${fretCount + 1}, 1fr)` }}>
           {frets.map((fret) => (
             <div key={`header-${fret}`} className={`fret-header ${fret === 0 ? 'nut-cell' : ''}`}>
               {fret}
