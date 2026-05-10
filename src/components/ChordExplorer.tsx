@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PRESET_CATEGORIES, findVoicings, getChordNotes, parseChordName } from '../music/chords';
-import { formatNote, getNoteAtFret } from '../music/notes';
+import { COMMON_TUNINGS, formatNote, getNoteAtFret } from '../music/notes';
 import type { AccidentalPreference, PitchClass } from '../types';
 import type { ChordVoicing } from '../music/chords';
 
@@ -223,11 +223,14 @@ export function ChordExplorer({ tuning, accidentalPreference }: ChordExplorerPro
 
   // Does this chord have a named preset? Used to show the "Standard Shape" badge on the first result.
   const hasStandardShape = useMemo(
-    () => PRESET_CATEGORIES.some((c) => c.shapes.some((s) => s.chordQuery === submitted)),
-    [submitted],
+    () => parsed
+      ? PRESET_CATEGORIES.some((c) => c.shapes.some((s) => s.chordQuery === parsed.displayName))
+      : false,
+    [parsed],
   );
 
   function handleSubmit() {
+    setFilterRoot(false);
     setSubmitted(query.trim());
   }
 
@@ -236,6 +239,7 @@ export function ChordExplorer({ tuning, accidentalPreference }: ChordExplorerPro
   }
 
   function handleExample(name: string) {
+    setFilterRoot(false);
     setQuery(name);
     setSubmitted(name);
   }
@@ -346,7 +350,7 @@ export function ChordExplorer({ tuning, accidentalPreference }: ChordExplorerPro
 
       {/* Common shapes library — always visible when no search is active */}
       {!parsed && (
-        <CommonShapes activeQuery={submitted} onSelect={handleExample} tuning={tuning} />
+        <CommonShapes activeQuery={submitted} onSelect={handleExample} />
       )}
     </section>
   );
@@ -357,10 +361,11 @@ export function ChordExplorer({ tuning, accidentalPreference }: ChordExplorerPro
 interface CommonShapesProps {
   activeQuery: string;
   onSelect: (name: string) => void;
-  tuning: PitchClass[];
 }
 
-function CommonShapes({ activeQuery, onSelect, tuning }: CommonShapesProps) {
+const STANDARD_TUNING = COMMON_TUNINGS[0]!.tuning;
+
+function CommonShapes({ activeQuery, onSelect }: CommonShapesProps) {
   return (
     <div className="common-shapes">
       <div className="common-shapes-header">
@@ -380,7 +385,7 @@ function CommonShapes({ activeQuery, onSelect, tuning }: CommonShapesProps) {
                 title={shape.name}
               >
                 <div className="preset-diagram">
-                  <ChordDiagram frets={shape.frets} stringTuning={tuning} root={shape.root} />
+                  <ChordDiagram frets={shape.frets} stringTuning={STANDARD_TUNING} root={shape.root} />
                 </div>
                 <span className="preset-shape-name">{shape.name}</span>
               </button>
@@ -404,7 +409,7 @@ interface VoicingCardProps {
 }
 
 function VoicingCard({ voicing, tuning, root, accidentalPreference, isStandard, isPowerChord }: VoicingCardProps) {
-  const posLabel = voicing.minFret === 0 ? 'Open' : `Fr. ${voicing.minFret}`;
+  const posLabel = voicing.frets.some((f) => f === 0) ? 'Open' : `Fr. ${voicing.minFret}`;
   const uniqueNotes = [...new Set(voicing.notesPlayed)];
 
   return (

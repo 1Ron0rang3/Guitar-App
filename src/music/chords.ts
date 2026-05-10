@@ -25,6 +25,7 @@ export const CHORD_TYPES: ChordType[] = [
   { id: 'sus4',  label: 'Suspended 4th',   symbol: 'sus4',    intervals: [0, 5, 7] },
   { id: '7sus4', label: 'Dom 7 sus4',      symbol: '7sus4',   intervals: [0, 5, 7, 10] },
   { id: 'add9',  label: 'Add 9',           symbol: 'add9',    intervals: [0, 2, 4, 7] },
+  { id: 'addb9', label: 'Add b9',          symbol: 'add♭9',   intervals: [0, 1, 4, 7] },
   { id: 'madd9', label: 'Minor add9',      symbol: 'm(add9)', intervals: [0, 2, 3, 7] },
   { id: '9',     label: 'Dominant 9th',    symbol: '9',       intervals: [0, 2, 4, 7, 10] },
   { id: 'maj9',  label: 'Major 9th',       symbol: 'maj9',    intervals: [0, 2, 4, 7, 11] },
@@ -56,7 +57,8 @@ const SUFFIX_PATTERNS: Array<[RegExp, string]> = [
   // 7sus4 before sus4 and before bare "7"
   [/^(7sus4|dom7sus4)$/i, '7sus4'],
   [/^(sus4|sus)$/i, 'sus4'],
-  [/^(add9|addb9)$/i, 'add9'],
+  [/^(addb9|add♭9|addb2)$/i, 'addb9'],
+  [/^(add9)$/i, 'add9'],
   // m(add9) before bare "m" so the suffix isn't swallowed early
   [/^(m\(add9\)|madd9|min\(add9\)|minadd9)$/i, 'madd9'],
   [/^(m|min|minor|-)$/i, 'min'],
@@ -133,7 +135,7 @@ export interface ChordVoicing {
   inversionLabel: string;
 }
 
-const INVERSION_LABELS = ['Root pos.', '1st inv.', '2nd inv.', '3rd inv.'];
+const INVERSION_LABELS = ['Root pos.', '1st inv.', '2nd inv.', '3rd inv.', '4th inv.'];
 
 function buildVoicing(
   frets: (number | null)[],
@@ -174,6 +176,12 @@ export function findVoicings(tuning: PitchClass[], chord: ParsedChord, maxFret =
   const chordNotes = getChordNotes(chord.root, chord.type.intervals);
   const chordNoteSet = new Set<PitchClass>(chordNotes);
 
+  // For 5-note chords (9ths etc.) the perfect 5th is conventionally omitted in
+  // guitar voicings — requiring all 5 notes produces zero results in practice.
+  const requiredNotes = chord.type.intervals.length >= 5
+    ? chordNotes.filter((_, i) => chord.type.intervals[i] !== 7)
+    : chordNotes;
+
   const results: ChordVoicing[] = [];
   const seen = new Set<string>();
 
@@ -189,7 +197,7 @@ export function findVoicings(tuning: PitchClass[], chord: ParsedChord, maxFret =
     const playedNoteSet = new Set(
       frets.map((f, s) => (f !== null ? getNoteAtFret(tuning[s]!, f) : null)).filter(Boolean),
     );
-    if (!chordNotes.every((n) => playedNoteSet.has(n))) return;
+    if (!requiredNotes.every((n) => playedNoteSet.has(n))) return;
 
     // Min 3 strings
     if (frets.filter((f) => f !== null).length < 3) return;
