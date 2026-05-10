@@ -6,12 +6,77 @@ import { ScaleSelector } from './components/ScaleSelector';
 import { TuningSettings } from './components/TuningSettings';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { CHROMATIC_SHARPS, COMMON_TUNINGS, formatNote, normalizeNoteName } from './music/notes';
+import { detectScale } from './music/scales';
+import type { ScaleType } from './music/scales';
 import type { AccidentalPreference, PitchClass } from './types';
 
 const STORAGE_KEY = 'guitar-fretboard-scale-generator';
 const THEME_KEY = 'guitar-fretboard-theme';
 type PanelTab = 'notes' | 'scale' | 'controls' | 'chords';
 const DEFAULT_SEVEN_STRING_LOW_NOTE: PitchClass = 'B';
+
+// Encode notes/tuning without percent-encoding commas; # stays percent-encoded
+// since bare # in a query string is parsed as a fragment start by browsers.
+function encodeNoteList(notes: PitchClass[]): string {
+  return notes.map((n) => n.replace('#', '%23')).join(',');
+}
+
+function parseUrlState(): {
+  selectedNotes?: PitchClass[];
+  rootNote?: PitchClass | null;
+  tuning?: PitchClass[];
+  accidentalPreference?: AccidentalPreference;
+  activeTab?: PanelTab;
+} {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.toString()) return {};
+    const result: ReturnType<typeof parseUrlState> = {};
+
+    const notesParam = params.get('notes');
+    if (notesParam) {
+      const notes = notesParam.split(',')
+        .map((n) => normalizeNoteName(n.trim()))
+        .filter((n): n is PitchClass => n !== null);
+      if (notes.length > 0) result.selectedNotes = notes;
+    }
+
+    const rootParam = params.get('root');
+    if (rootParam !== null) {
+      result.rootNote = rootParam === '' ? null : (normalizeNoteName(rootParam.trim()) ?? null);
+    }
+
+    const tuningParam = params.get('tuning');
+    if (tuningParam) {
+      const t = tuningParam.split(',')
+        .map((n) => normalizeNoteName(n.trim()))
+        .filter((n): n is PitchClass => n !== null);
+      if (t.length >= 4) result.tuning = t;
+    }
+
+    const accParam = params.get('acc');
+    if (accParam === 'sharp' || accParam === 'flat') result.accidentalPreference = accParam;
+
+    const tabParam = params.get('tab');
+    if (tabParam === 'notes' || tabParam === 'scale' || tabParam === 'controls' || tabParam === 'chords') {
+      result.activeTab = tabParam;
+    }
+
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+const URL_STATE = parseUrlState();
+
+// Detect which scale (if any) the URL-loaded notes belong to.
+const URL_DETECTED_SCALE: { scale: ScaleType; root: PitchClass } | null = (() => {
+  const { selectedNotes, rootNote } = URL_STATE;
+  if (!selectedNotes || !rootNote) return null;
+  const scale = detectScale(selectedNotes, rootNote);
+  return scale ? { scale, root: rootNote } : null;
+})();
 
 function SunIcon() {
   return (
@@ -54,8 +119,8 @@ const defaultState: StoredState = {
 
 function App() {
   const [storedState, setStoredState] = useLocalStorage<StoredState>(STORAGE_KEY, defaultState);
-  const [selectedNotes, setSelectedNotes] = useState<PitchClass[]>(storedState.selectedNotes);
-  const [tuning, setTuning] = useState<PitchClass[]>(storedState.tuning);
+  const [selectedNotes, setSelectedNotes] = useState<PitchClass[]>(URL_STATE.selectedNotes ?? storedState.selectedNotes);
+  const [tuning, setTuning] = useState<PitchClass[]>(URL_STATE.tuning ?? storedState.tuning);
   const [fretCount] = useState<number>(
     storedState.version !== defaultState.version ? defaultState.fretCount : storedState.fretCount,
   );
@@ -71,10 +136,19 @@ function App() {
   const displayFretCount = viewportWidth < 768 ? 12 : fretCount;
   const [showLabels, setShowLabels] = useState<boolean>(storedState.showLabels);
   const [hideUnselected, setHideUnselected] = useState<boolean>(storedState.hideUnselected);
-  const [accidentalPreference, setAccidentalPreference] = useState<AccidentalPreference>(storedState.accidentalPreference);
-  const [rootNote, setRootNote] = useState<PitchClass | null>(storedState.rootNote);
-  const [activeTab, setActiveTab] = useState<PanelTab>('notes');
-  const [activeScaleName, setActiveScaleName] = useState<string | null>(null);
+  const [accidentalPreference, setAccidentalPreference] = useState<AccidentalPreference>(URL_STATE.accidentalPreference ?? storedState.accidentalPreference);
+  const [rootNote, setRootNote] = useState<PitchClass | null>(URL_STATE.rootNote !== undefined ? URL_STATE.rootNote : storedState.rootNote);
+  const [activeTab, setActiveTab] = useState<PanelTab>(URL_STATE.activeTab ?? 'notes');
+  const [copied, setCopied] = useState(false);
+  const [activeScale, setActiveScale] = useState<{ name: string; id: string; root: PitchClass } | null>(() => {
+    if (!URL_DETECTED_SCALE) return null;
+    const acc = URL_STATE.accidentalPreference ?? storedState.accidentalPreference;
+    return {
+      name: `${formatNote(URL_DETECTED_SCALE.root, acc)} ${URL_DETECTED_SCALE.scale.label}`,
+      id: URL_DETECTED_SCALE.scale.id,
+      root: URL_DETECTED_SCALE.root,
+    };
+  });
   const [isDark, setIsDark] = useState<boolean>(() => {
     try {
       const stored = localStorage.getItem(THEME_KEY);
@@ -121,14 +195,14 @@ function App() {
   );
   const isSevenString = tuning.length === 7;
 
-  function handleScaleSelect(notes: PitchClass[], root: PitchClass, scaleName: string) {
+  function handleScaleSelect(notes: PitchClass[], root: PitchClass, scaleName: string, scaleId: string) {
     setSelectedNotes(notes);
     setRootNote(root);
-    setActiveScaleName(scaleName);
+    setActiveScale({ name: scaleName, id: scaleId, root });
   }
 
   function toggleSelectedNote(note: PitchClass) {
-    setActiveScaleName(null);
+    setActiveScale(null);
     const nextNotes = selectedNotes.includes(note)
       ? selectedNotes.filter((entry) => entry !== note)
       : [...selectedNotes, note];
@@ -176,6 +250,21 @@ function App() {
     setRootNote(note);
   }
 
+  function handleCopyLink() {
+    const parts: string[] = [
+      `notes=${encodeNoteList(selectedNotes)}`,
+      `root=${rootNote ? rootNote.replace('#', '%23') : ''}`,
+      `tuning=${encodeNoteList(tuning)}`,
+      `acc=${accidentalPreference}`,
+      `tab=${activeTab}`,
+    ];
+
+    const url = `${window.location.origin}${window.location.pathname}?${parts.join('&')}`;
+    navigator.clipboard.writeText(url).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -183,30 +272,40 @@ function App() {
           <h1 className="app-title">Fretboard Scale Generator</h1>
           <p className="app-subtitle">Map any scale or chord across the neck</p>
         </div>
-        <div className="theme-toggle" role="group" aria-label="Color theme">
+        <div className="header-actions">
           <button
             type="button"
-            className={`theme-btn ${!isDark ? 'is-active' : ''}`}
-            onClick={() => setIsDark(false)}
-            aria-label="Light mode"
+            className={`copy-link-btn ${copied ? 'is-copied' : ''}`}
+            onClick={handleCopyLink}
+            aria-label="Copy shareable link"
           >
-            <SunIcon />
+            {copied ? 'Copied!' : 'Copy link'}
           </button>
-          <button
-            type="button"
-            className={`theme-btn ${isDark ? 'is-active' : ''}`}
-            onClick={() => setIsDark(true)}
-            aria-label="Dark mode"
-          >
-            <MoonIcon />
-          </button>
+          <div className="theme-toggle" role="group" aria-label="Color theme">
+            <button
+              type="button"
+              className={`theme-btn ${!isDark ? 'is-active' : ''}`}
+              onClick={() => setIsDark(false)}
+              aria-label="Light mode"
+            >
+              <SunIcon />
+            </button>
+            <button
+              type="button"
+              className={`theme-btn ${isDark ? 'is-active' : ''}`}
+              onClick={() => setIsDark(true)}
+              aria-label="Dark mode"
+            >
+              <MoonIcon />
+            </button>
+          </div>
         </div>
       </header>
 
       <section className="hero-stats">
         <div className="stat-card">
-          <span>{activeScaleName ? 'Active scale' : 'Active notes'}</span>
-          <strong>{activeScaleName ?? selectedNotes.length}</strong>
+          <span>{activeScale ? 'Active scale' : 'Active notes'}</span>
+          <strong>{activeScale?.name ?? selectedNotes.length}</strong>
         </div>
         <div className="stat-card">
           <span>Current tuning</span>
@@ -282,12 +381,12 @@ function App() {
               onClear={() => {
                 setSelectedNotes([]);
                 setRootNote(null);
-                setActiveScaleName(null);
+                setActiveScale(null);
               }}
               onSelectAll={() => {
                 setSelectedNotes(CHROMATIC_SHARPS);
                 setRootNote(rootNote ?? CHROMATIC_SHARPS[0]);
-                setActiveScaleName(null);
+                setActiveScale(null);
               }}
             />
           )}
@@ -299,8 +398,10 @@ function App() {
               onClear={() => {
                 setSelectedNotes([]);
                 setRootNote(null);
-                setActiveScaleName(null);
+                setActiveScale(null);
               }}
+              initialRoot={URL_DETECTED_SCALE?.root}
+              initialScaleId={URL_DETECTED_SCALE?.scale.id}
             />
           )}
 

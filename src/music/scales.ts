@@ -67,3 +67,14 @@ export function getScaleNotes(root: PitchClass, intervals: number[]): PitchClass
   const idx = getNoteIndex(root);
   return intervals.map((s) => CHROMATIC_SHARPS[(idx + s) % 12]!);
 }
+
+export function detectScale(notes: PitchClass[], root: PitchClass): ScaleType | null {
+  if (notes.length === 0) return null;
+  const rootIdx = getNoteIndex(root);
+  const intervalSet = new Set(notes.map((n) => (getNoteIndex(n) - rootIdx + 12) % 12));
+  return (
+    SCALES.find(
+      (s) => s.intervals.length === notes.length && s.intervals.every((i) => intervalSet.has(i)),
+    ) ?? null
+  );
+}

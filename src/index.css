@@ -101,6 +101,39 @@ select {
   color: var(--muted);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.copy-link-btn {
+  height: 2.44rem;
+  padding: 0 0.85rem;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-sub);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  white-space: nowrap;
+}
+
+.copy-link-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.copy-link-btn.is-copied {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .theme-toggle {
   display: flex;
   gap: 0.2rem;

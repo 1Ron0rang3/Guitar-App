@@ -1,12 +1,14 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CHROMATIC_SHARPS, formatNote, normalizeNoteName } from '../music/notes';
 import { SCALE_CATEGORIES, SCALES, getScaleNotes } from '../music/scales';
 import type { AccidentalPreference, PitchClass } from '../types';
 
 interface ScaleSelectorProps {
   accidentalPreference: AccidentalPreference;
-  onScaleSelect: (notes: PitchClass[], root: PitchClass, scaleName: string) => void;
+  onScaleSelect: (notes: PitchClass[], root: PitchClass, scaleName: string, scaleId: string) => void;
   onClear: () => void;
+  initialRoot?: PitchClass;
+  initialScaleId?: string;
 }
 
 interface QuickPick {
@@ -62,9 +64,9 @@ function scaleMatchesQuery(scaleId: string, label: string, q: string): boolean {
   return tokens.every((token) => lLabel.includes(token) || aliases.some((a) => a.includes(token)));
 }
 
-export function ScaleSelector({ accidentalPreference, onScaleSelect, onClear }: ScaleSelectorProps) {
-  const [selectedRoot, setSelectedRoot] = useState<PitchClass | ''>('');
-  const [selectedScaleId, setSelectedScaleId] = useState('');
+export function ScaleSelector({ accidentalPreference, onScaleSelect, onClear, initialRoot, initialScaleId }: ScaleSelectorProps) {
+  const [selectedRoot, setSelectedRoot] = useState<PitchClass | ''>(initialRoot ?? '');
+  const [selectedScaleId, setSelectedScaleId] = useState(initialScaleId ?? '');
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -116,8 +118,15 @@ export function ScaleSelector({ accidentalPreference, onScaleSelect, onClear }: 
     if (!scale) return;
     const notes = getScaleNotes(root, scale.intervals);
     const name = `${formatNote(root, accidentalPreference)} ${scale.label}`;
-    onScaleSelect(notes, root, name);
+    onScaleSelect(notes, root, name, scaleId);
   }
+
+  // Fire onScaleSelect once on mount when seeded from a URL so App.tsx gets
+  // activeScale populated without the user having to touch the dropdowns.
+  useEffect(() => {
+    if (initialRoot && initialScaleId) applyScale(initialRoot, initialScaleId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleRootChange(value: string) {
     setSelectedRoot(value as PitchClass | '');
